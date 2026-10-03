@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Photo Booth</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#fff7fb;--card:#fff;--tx:#2a1530;--mut:#7a6280;--ac:#e8368f;--bd:#f0d5e4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#150d1a;--card:#221529;--tx:#f6e9fa;--mut:#a690ad;--ac:#ff5fae;--bd:#3a2644}}
+:root[data-theme="dark"]{--bg:#150d1a;--card:#221529;--tx:#f6e9fa;--mut:#a690ad;--ac:#ff5fae;--bd:#3a2644}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;margin:4px 0 12px;text-align:center}
+.stage{position:relative;background:#000;border-radius:16px;overflow:hidden;aspect-ratio:4/3}
+canvas{width:100%;height:100%;display:block}
+#msg{position:absolute;inset:0;display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;text-align:center;padding:20px;color:#fff;background:rgba(0,0,0,.6)}
+#count{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:9rem;font-weight:800;color:#fff;text-shadow:0 4px 24px rgba(0,0,0,.6)}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .4s}
+button{font:inherit;cursor:pointer;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:999px;padding:8px 14px}
+button.on{background:var(--ac);border-color:var(--ac);color:#fff}
+.shoot{display:block;margin:14px auto;background:var(--ac);color:#fff;border:0;font-weight:700;font-size:1.1rem;padding:14px 36px}
+.row{display:flex;gap:8px;overflow-x:auto;padding:4px 0 8px}
+.row button{white-space:nowrap;flex:0 0 auto}
+h2{font-size:.85rem;color:var(--mut);margin:12px 0 2px;text-transform:uppercase;letter-spacing:.06em}
+#gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+#gal figure{margin:0;position:relative}
+#gal img{width:100%;border-radius:10px;display:block;border:1px solid var(--bd)}
+#gal a{position:absolute;right:6px;bottom:6px;background:var(--ac);color:#fff;border-radius:999px;padding:4px 10px;font-size:.8rem;text-decoration:none}
+.note{color:var(--mut);font-size:.8rem;text-align:center}
+</style>
+</head>
+<body>
+<main>
+<h1>📸 Photo Booth</h1>
+<div class="stage">
+  <canvas id="cv" width="960" height="720"></canvas>
+  <div id="count"></div><div id="flash"></div>
+  <div id="msg"><div>Izinkan akses kamera untuk mulai</div><button class="on" id="start">Aktifkan Kamera</button><small id="err"></small></div>
+</div>
+<button class="shoot" id="shoot">📷 Ambil Foto</button>
+<h2>Filter warna</h2><div class="row" id="fl"></div>
+<h2>Filter wajah</h2><div class="row" id="st"></div>
+<h2>Bingkai</h2><div class="row" id="fr"></div>
+<p class="note" id="fnote"></p>
+<h2>Hasil foto</h2><div id="gal"><span class="note">Belum ada foto.</span></div>
+</main>
+<script>
+const cv=document.getElementById('cv'),cx=cv.getContext('2d'),W=cv.width,H=cv.height;
+const vid=document.createElement('video');vid.playsInline=true;vid.muted=true;
+let ready=false,face=null,busy=false,fi=0,si=0,bi=0;
+
+const filters=[['Normal','none'],['Hitam Putih','grayscale(1) contrast(1.1)'],['Sepia','sepia(.9)'],['Vintage','sepia(.5) contrast(.9) saturate(1.4) hue-rotate(-15deg)'],['Dingin','saturate(1.2) hue-rotate(15deg) brightness(1.05)'],['Hangat','sepia(.3) saturate(1.5) brightness(1.05)'],['Pop','saturate(2) contrast(1.2)'],['Invert','invert(1) hue-rotate(180deg)']];
+
+const E=(c,x,y,s,r=0)=>{cx.save();cx.translate(x,y);cx.rotate(r);cx.font=s+'px serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText(c,0,0);cx.restore()};
+const stickers=[
+['Tanpa',()=>{}],
+['😎 Kacamata',f=>E('😎',f.cx,f.y+f.h*.38,f.w*.95)],
+['👑 Mahkota',f=>E('👑',f.cx,f.y-f.h*.08,f.w*.8)],
+['🐱 Kucing',f=>{E('🐱',f.cx,f.y-f.h*.12,f.w*.9);cx.fillStyle='#222';cx.lineWidth=3;cx.strokeStyle='#222';cx.beginPath();for(const d of[-1,1])for(const k of[-.2,0,.2]){cx.moveTo(f.cx+d*f.w*.12,f.y+f.h*.68+k*f.h*.12);cx.lineTo(f.cx+d*f.w*.5,f.y+f.h*.62+k*f.h*.3)}cx.stroke();E('🐽',f.cx,f.y+f.h*.6,f.w*.28)}],
+['🤡 Hidung',f=>E('🔴',f.cx,f.y+f.h*.58,f.w*.22)],
+['🥸 Kumis',f=>E('🥸',f.cx,f.y+f.h*.5,f.w*1.0)],
+['🎩 Topi',f=>E('🎩',f.cx,f.y-f.h*.12,f.w*.85,-.1)],
+['😇 Halo',f=>{cx.strokeStyle='#ffd23f';cx.lineWidth=f.w*.06;cx.shadowColor='#ffd23f';cx.shadowBlur=20;cx.beginPath();cx.ellipse(f.cx,f.y-f.h*.12,f.w*.35,f.h*.08,0,0,7);cx.stroke();cx.shadowBlur=0}],
+['💖 Hati',f=>{const t=Date.now()/600;for(let i=0;i<5;i++)E('💖',f.cx+Math.cos(t+i*1.26)*f.w*.8,f.y+f.h*.3+Math.sin(t+i*1.26)*f.h*.5,f.w*.2)}]
+];
+
+const edge=(c,n)=>{const s=70;for(let i=0;i<n;i++){const x=(i+.5)*W/n,y=(i+.5)*H/(n*W/H);E(c,x,26,s*.6);E(c,x,H-26,s*.6);E(c,26,(i+.5)*H/(n*W/H),s*.6);E(c,W-26,(i+.5)*H/(n*W/H),s*.6)}};
+const frames=[
+['Tanpa',()=>{}],
+['Polaroid',()=>{cx.fillStyle='#fff';cx.fillRect(0,0,W,30);cx.fillRect(0,0,30,H);cx.fillRect(W-30,0,30,H);cx.fillRect(0,H-110,W,110);cx.fillStyle='#444';cx.font='italic 40px cursive,serif';cx.textAlign='center';cx.fillText('Photo Booth • '+new Date().toLocaleDateString('id-ID'),W/2,H-42)}],
+['Neon',()=>{for(const[c,o,w]of[['#ff2bd6',10,8],['#27e9ff',24,6]]){cx.save();cx.strokeStyle=c;cx.lineWidth=w;cx.shadowColor=c;cx.shadowBlur=25;cx.strokeRect(o,o,W-2*o,H-2*o);cx.restore()}}],
+['Emas',()=>{const g=cx.createLinearGradient(0,0,W,H);g.addColorStop(0,'#fff1a8');g.addColorStop(.5,'#c9962b');g.addColorStop(1,'#fff1a8');cx.strokeStyle=g;cx.lineWidth=36;cx.strokeRect(18,18,W-36,H-36);cx.strokeStyle='#7a5611';cx.lineWidth=3;cx.strokeRect(38,38,W-76,H-76)}],
+['Film',()=>{cx.fillStyle='#111';cx.fillRect(0,0,W,50);cx.fillRect(0,H-50,W,50);cx.fillStyle='#eee';for(let x=12;x<W;x+=44){cx.fillRect(x,16,24,18);cx.fillRect(x,H-34,24,18)}}],
+['Hati',()=>{cx.strokeStyle='#ff7ab8';cx.lineWidth=24;cx.strokeRect(12,12,W-24,H-24);edge('💗',13)}],
+['Bintang',()=>{cx.strokeStyle='#1c1e5a';cx.lineWidth=40;cx.strokeRect(20,20,W-40,H-40);edge('⭐',13)}],
+['Bunga',()=>{cx.strokeStyle='#bff0c8';cx.lineWidth=30;cx.strokeRect(15,15,W-30,H-30);edge('🌸',13)}]
+];
+
+function chips(id,list,get,set){const el=document.getElementById(id);list.forEach((it,i)=>{const b=document.createElement('button');b.textContent=it[0];b.onclick=()=>{set(i);[...el.children].forEach((c,j)=>c.classList.toggle('on',j==i))};if(i==0)b.classList.add('on');el.appendChild(b)})}
+chips('fl',filters,0,i=>fi=i);chips('st',stickers,0,i=>si=i);chips('fr',frames,0,i=>bi=i);
+
+const hasFD='FaceDetector' in window;
+const fd=hasFD?new FaceDetector({fastMode:true,maxDetectedFaces:1}):null;
+document.getElementById('fnote').textContent=hasFD?'Deteksi wajah aktif: stiker mengikuti wajahmu.':'Browser ini belum mendukung deteksi wajah, jadi stiker dipasang di posisi tengah layar. Coba Chrome di Android/desktop untuk hasil terbaik.';
+
+function cover(){const vw=vid.videoWidth,vh=vid.videoHeight,s=Math.max(W/vw,H/vh);return{s,ox:(W-vw*s)/2,oy:(H-vh*s)/2,vw,vh}}
+async function detect(){if(!fd||!ready||busy||si==0)return;busy=true;try{const r=await fd.detect(vid);if(r[0]){const b=r[0].boundingBox,c=cover();const w=b.width*c.s,x=W-(b.x*c.s+c.ox+w);face={x,y:b.y*c.s+c.oy,w,h:b.height*c.s,cx:x+w/2}}else face=null}catch(e){}busy=false}
+setInterval(detect,120);
+
+function draw(){
+  cx.clearRect(0,0,W,H);
+  if(ready){const c=cover();cx.save();cx.filter=filters[fi][1];cx.translate(W,0);cx.scale(-1,1);cx.drawImage(vid,c.ox,c.oy,c.vw*c.s,c.vh*c.s);cx.restore();cx.filter='none';
+    let f=face;if(!hasFD||!f){f=hasFD?null:{x:W*.3,y:H*.2,w:W*.4,h:W*.5,cx:W/2}}
+    if(f&&si>0)stickers[si][1](f);
+    frames[bi][1]();
+  }
+  requestAnimationFrame(draw);
+}
+draw();
+
+document.getElementById('start').onclick=async()=>{
+  try{
+    const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}},audio:false});
+    vid.srcObject=s;await vid.play();ready=true;document.getElementById('msg').style.display='none';
+  }catch(e){document.getElementById('err').textContent='Kamera tidak bisa diakses ('+(e.name||'error')+'). Periksa izin kamera browser, lalu coba lagi.'}
+};
+
+const cnt=document.getElementById('count'),fl=document.getElementById('flash'),gal=document.getElementById('gal');
+let shooting=false;
+document.getElementById('shoot').onclick=async()=>{
+  if(!ready||shooting)return;shooting=true;
+  cnt.style.display='flex';for(let n=3;n>0;n--){cnt.textContent=n;await new Promise(r=>setTimeout(r,900))}
+  cnt.style.display='none';
+  const url=cv.toDataURL('image/png');
+  fl.style.opacity=1;setTimeout(()=>fl.style.opacity=0,80);
+  if(!gal.querySelector('figure'))gal.innerHTML='';
+  const fg=document.createElement('figure');fg.innerHTML='<img alt="Foto"><a download="photobooth-'+Date.now()+'.png">Unduh</a>';
+  fg.querySelector('img').src=url;fg.querySelector('a').href=url;gal.prepend(fg);
+  shooting=false;
+};
+</script>
+</body>
+</html>
