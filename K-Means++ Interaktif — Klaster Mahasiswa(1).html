@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>K-Means++ Interaktif — Klaster Mahasiswa</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f5f6fb;--card:#fff;--tx:#1b1f3b;--mu:#6b7194;--bd:#e3e6f3;--ac:#5b5bf0;--c0:#5b5bf0;--c1:#f0593e;--c2:#10b981;--c3:#f5a524;--c4:#d946ef}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1224;--card:#181c36;--tx:#eceefc;--mu:#98a0c8;--bd:#2a2f54;--ac:#8b8bff}}
+:root[data-theme="dark"]{--bg:#0f1224;--card:#181c36;--tx:#eceefc;--mu:#98a0c8;--bd:#2a2f54;--ac:#8b8bff}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.55 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+.w{max-width:1100px;margin:0 auto;padding:20px 16px 48px}
+header{background:linear-gradient(135deg,#5b5bf0,#d946ef);color:#fff;border-radius:20px;padding:28px 24px;margin-bottom:18px}
+h1{margin:0 0 6px;font-size:clamp(22px,4vw,32px)}header p{margin:0;opacity:.9}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 2px 10px rgba(30,30,80,.05)}
+h2{margin:0 0 10px;font-size:18px}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:820px){.g{grid-template-columns:1fr}}
+.ctl{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+label{color:var(--mu);font-size:13px}
+select,input[type=number]{background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;font:inherit;width:84px}
+button{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:9px 14px;font:inherit;font-weight:600;cursor:pointer}
+button.s{background:var(--bg);color:var(--tx);border:1px solid var(--bd)}
+input[type=range]{flex:1;min-width:140px;accent-color:var(--ac)}
+ol{margin:0;padding-left:20px}li{margin:4px 0}
+.tw{overflow-x:auto;max-height:340px;overflow-y:auto;border:1px solid var(--bd);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+th,td{padding:6px 10px;text-align:right;border-bottom:1px solid var(--bd)}th:first-child,td:first-child{text-align:left}
+th{position:sticky;top:0;background:var(--card);color:var(--mu);font-weight:600}
+.f{background:var(--bg);border-left:4px solid var(--ac);padding:8px 12px;border-radius:8px;margin:8px 0;font-family:ui-monospace,Menlo,monospace;font-size:13px;overflow-x:auto}
+.tag{display:inline-block;color:#fff;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:600}
+.k{display:inline-block;padding:2px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--bd);font-size:12px;color:var(--mu)}
+svg{width:100%;height:auto;display:block}
+.ax{fill:var(--mu);font-size:11px}
+.res{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.fm{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}.fm input{background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;font:inherit;flex:1;min-width:90px;width:auto}button.x{padding:1px 8px;background:transparent;color:var(--c1);border:1px solid var(--bd)}#msg{color:var(--c1);font-size:13px;margin:0 0 8px;min-height:0}
+.res>div{border:1px solid var(--bd);border-radius:12px;padding:12px}
+</style></head><body><div class="w">
+<header><h1>K-Means++ Interaktif</h1><p>Pengelompokan mahasiswa (data bisa kamu isi sendiri) berdasarkan IPK dan persentase kehadiran, lengkap dengan perhitungan langkah demi langkah.</p></header>
+
+<div class="g">
+<div class="card"><h2>Algoritma K-Means++</h2><ol>
+<li>Normalisasi data dengan min-max ke rentang 0–1.</li>
+<li>Pilih centroid pertama secara acak dari data.</li>
+<li>Hitung <b>D(x)²</b>, jarak kuadrat tiap titik ke centroid terdekat.</li>
+<li>Pilih centroid berikutnya dengan peluang <b>D(x)² / ΣD²</b>. Ulangi sampai K centroid.</li>
+<li><b>Assignment:</b> tiap titik masuk ke centroid terdekat.</li>
+<li><b>Update:</b> centroid = rata-rata anggota klaster.</li>
+<li>Ulangi 5–6 sampai keanggotaan tidak berubah.</li></ol>
+<div class="f">x' = (x − min) / (max − min)<br>d² = (x₁−c₁)² + (x₂−c₂)²<br>SSE = Σ d²(x, centroid klaster)</div></div>
+<div class="card"><h2>Data Mahasiswa</h2><div class="fm"><input id="in" placeholder="Nama" maxlength="30"><input id="ii" type="number" step="0.01" min="0" max="4" placeholder="IPK (0–4)"><input id="ih" type="number" step="0.1" min="0" max="100" placeholder="Hadir (%)"><button id="ad">Tambah</button></div>
+<div class="ctl" style="margin-bottom:8px"><button class="s" id="rd">Reset data contoh</button><button class="s" id="cl">Kosongkan</button><span class="k" id="cn"></span></div>
+<div id="msg"></div><div class="tw"><table id="dt"></table></div></div>
+</div>
+
+<div class="card"><div class="ctl">
+<label>Jumlah klaster (K)</label><select id="k"><option>2</option><option selected>3</option><option>4</option><option>5</option></select>
+<label>Seed acak</label><input type="number" id="seed" value="7">
+<button id="go">Jalankan ulang</button><button class="s" id="th">Tema</button></div></div>
+
+<div class="g">
+<div class="card"><h2>Visualisasi Klaster</h2><div id="sc"></div><div id="lg" style="margin-top:6px"></div></div>
+<div class="card"><h2>Langkah <span class="k" id="sn"></span></h2>
+<div class="ctl" style="margin-bottom:10px"><button class="s" id="pv">←</button><input type="range" id="sl" min="0" value="0"><button id="nx">→</button></div>
+<div id="st"></div></div>
+</div>
+
+<div class="g">
+<div class="card"><h2>Konvergensi SSE</h2><div id="ch"></div></div>
+<div class="card"><h2>Hasil Akhir</h2><div class="res" id="rs"></div></div>
+</div>
+</div>
+<script>
+let D=[["Andi",3.85,96],["Budi",3.72,92],["Citra",3.90,98],["Dewi",3.65,89],["Eka",3.78,94],["Fajar",3.55,90],["Gita",3.92,95],["Hadi",3.68,97],["Indah",3.81,91],["Joko",3.60,93],["Kiki",2.95,78],["Lina",3.10,82],["Maman",2.80,75],["Nina",3.05,85],["Oscar",2.90,80],["Putri",3.20,79],["Qori",2.75,83],["Rudi",3.15,76],["Sari",2.85,88],["Tono",3.00,72],["Umar",2.20,55],["Vina",2.45,62],["Wawan",2.10,48],["Xena",2.35,58],["Yoga",2.50,52],["Zahra",2.30,66],["Aldi",2.60,60],["Bella",2.15,57],["Candra",2.55,45],["Dika",2.40,64]];
+const DEF=D.map(d=>d.slice());let n,mn,mx,P;const $=id=>document.getElementById(id),COL=["var(--c0)","var(--c1)","var(--c2)","var(--c3)","var(--c4)"];
+function prep(){n=D.length;mn=[1,2].map(j=>Math.min(...D.map(d=>d[j])));mx=[1,2].map(j=>Math.max(...D.map(d=>d[j])));P=D.map(d=>[(d[1]-mn[0])/((mx[0]-mn[0])||1),(d[2]-mn[1])/((mx[1]-mn[1])||1)])}
+prep();
+const d2=(a,b)=>(a[0]-b[0])**2+(a[1]-b[1])**2,f=(v,z=4)=>v.toFixed(z),cp=c=>`(${f(c[0])}, ${f(c[1])})`;
+const tg=i=>`<span class="tag" style="background:${COL[i]}">C${i+1}</span>`;
+function drawTable(){prep();$("cn").textContent=n+" mahasiswa";$("dt").innerHTML="<tr><th>Nama</th><th>IPK</th><th>Hadir %</th><th>IPK'</th><th>Hadir'</th><th></th></tr>"+D.map((d,i)=>`<tr><td>${d[0]}</td><td>${d[1].toFixed(2)}</td><td>${d[2]}</td><td>${f(P[i][0])}</td><td>${f(P[i][1])}</td><td><button class="x" data-i="${i}" title="Hapus">✕</button></td></tr>`).join("")}
+function mul(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let S=[],cur=0,SSE=[],FL=[],FC=[];
+function run(k,seed){
+ const r=mul(seed);S=[];SSE=[];let C=[],first=Math.floor(r()*n);C.push(P[first].slice());
+ S.push({t:"Inisialisasi — centroid 1",d:`Satu titik dipilih acak dengan peluang seragam: <b>${D[first][0]}</b> → C1 = ${cp(C[0])}.`,C:C.map(c=>c.slice()),L:null,h:first});
+ for(let c=1;c<k;c++){
+  const dd=P.map(p=>Math.min(...C.map(q=>d2(p,q)))),s=dd.reduce((a,b)=>a+b,0);
+  let x=r()*s,acc=0,idx=0;for(let i=0;i<n;i++){if(dd[i]>0){idx=i;acc+=dd[i];if(x<=acc)break}}
+  const rows=dd.map((v,i)=>`<tr${i==idx?' style="font-weight:700;color:var(--ac)"':""}><td>${D[i][0]}</td><td>${f(v)}</td><td>${f(v/s*100,2)}%</td></tr>`).join("");
+  C.push(P[idx].slice());
+  S.push({t:`Inisialisasi — centroid ${c+1}`,d:`Hitung D(x)² ke centroid terdekat (ΣD² = ${f(s)}). Titik dipilih dengan peluang proporsional: <b>${D[idx][0]}</b> terpilih → C${c+1} = ${cp(C[c])}.<div class="f">P(x) = D(x)² / ΣD²</div><div class="tw"><table><tr><th>Nama</th><th>D(x)²</th><th>Peluang</th></tr>${rows}</table></div>`,C:C.map(c=>c.slice()),L:null,h:idx});
+ }
+ let L=null;
+ for(let it=1;it<=30;it++){
+  const dist=P.map(p=>C.map(q=>d2(p,q))),NL=dist.map(a=>a.indexOf(Math.min(...a)));
+  const E=dist.reduce((a,v,i)=>a+v[NL[i]],0);SSE.push(E);
+  const ch=!L||NL.some((v,i)=>v!==L[i]);L=NL;
+  const rows=dist.map((v,i)=>{const m=Math.min(...v);return`<tr><td>${D[i][0]}</td>${v.map(z=>`<td${z==m?' style="font-weight:700;color:var(--ac)"':""}>${f(z)}</td>`).join("")}<td>${tg(NL[i])}</td></tr>`}).join("");
+  S.push({t:`Iterasi ${it} — Assignment`,d:`Tiap titik masuk ke centroid dengan d² terkecil. SSE = <b>${f(E)}</b>.<div class="f">klaster(x) = argmin d²(x, Cj)</div><div class="tw"><table><tr><th>Nama</th>${C.map((_,j)=>`<th>d² C${j+1}</th>`).join("")}<th>Klaster</th></tr>${rows}</table></div>`,C:C.map(c=>c.slice()),L:L.slice()});
+  if(!ch){S.push({t:`Iterasi ${it} — Konvergen`,d:`Keanggotaan klaster tidak berubah dari iterasi sebelumnya, sehingga algoritma berhenti. SSE akhir = <b>${f(E)}</b>.`,C:C.map(c=>c.slice()),L:L.slice()});break}
+  const OC=C.map(c=>c.slice());let tr="";
+  C=C.map((c,j)=>{const m=P.filter((_,i)=>L[i]==j);if(!m.length)return c;const nc=[0,1].map(a=>m.reduce((s,p)=>s+p[a],0)/m.length);tr+=`<tr><td>${tg(j)}</td><td>${m.length}</td><td>${cp(OC[j])}</td><td>${cp(nc)}</td></tr>`;return nc});
+  S.push({t:`Iterasi ${it} — Update centroid`,d:`Centroid baru adalah rata-rata anggota tiap klaster.<div class="f">Cj = (1/|Sj|) · Σ x, x ∈ Sj</div><div class="tw"><table><tr><th>Klaster</th><th>n</th><th>Lama</th><th>Baru</th></tr>${tr}</table></div>`,C:C.map(c=>c.slice()),L:L.slice()});
+ }
+ FL=L;FC=C;
+}
+function scatter(s){
+ const W=480,H=340,p=42,X=v=>p+v*(W-p-14),Y=v=>H-p-v*(H-p-14);let o=`<svg viewBox="0 0 ${W} ${H}">`;
+ for(let i=0;i<=4;i++){const v=i/4;o+=`<line x1="${X(v)}" x2="${X(v)}" y1="${Y(0)}" y2="${Y(1)}" stroke="var(--bd)"/><line x1="${X(0)}" x2="${X(1)}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--bd)"/><text class="ax" x="${X(v)}" y="${H-24}" text-anchor="middle">${(mn[0]+v*(mx[0]-mn[0])).toFixed(1)}</text><text class="ax" x="${p-6}" y="${Y(v)+4}" text-anchor="end">${(mn[1]+v*(mx[1]-mn[1])).toFixed(0)}</text>`}
+ o+=`<text class="ax" x="${W/2}" y="${H-6}" text-anchor="middle">IPK</text><text class="ax" transform="translate(12 ${H/2}) rotate(-90)" text-anchor="middle">Kehadiran (%)</text>`;
+ P.forEach((q,i)=>{o+=`<circle cx="${X(q[0])}" cy="${Y(q[1])}" r="6" fill="${s.L?COL[s.L[i]]:"var(--mu)"}" fill-opacity=".8"><title>${D[i][0]} — IPK ${D[i][1]}, Hadir ${D[i][2]}%</title></circle>`});
+ if(s.h!=null)o+=`<circle cx="${X(P[s.h][0])}" cy="${Y(P[s.h][1])}" r="11" fill="none" stroke="var(--tx)" stroke-width="2"/>`;
+ s.C.forEach((c,j)=>{const x=X(c[0]),y=Y(c[1]);o+=`<path d="M${x} ${y-10}L${x+10} ${y}L${x} ${y+10}L${x-10} ${y}Z" fill="${COL[j]}" stroke="var(--tx)" stroke-width="2"><title>C${j+1} ${cp(c)}</title></path>`});
+ $("sc").innerHTML=o+"</svg>";
+ $("lg").innerHTML=s.C.map((_,j)=>tg(j)).join(" ")+' <span class="k">◆ centroid</span> <span class="k">● mahasiswa</span>';
+}
+function sseChart(){
+ const W=480,H=260,p=44,m=Math.max(...SSE),N=SSE.length,X=i=>p+(N>1?i/(N-1):.5)*(W-p-20),Y=v=>H-34-(v/m)*(H-60);
+ let o=`<svg viewBox="0 0 ${W} ${H}"><line x1="${p}" x2="${p}" y1="${Y(0)}" y2="${Y(m)}" stroke="var(--bd)"/><line x1="${p}" x2="${W-14}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--bd)"/>`;
+ o+=`<polyline fill="none" stroke="var(--ac)" stroke-width="3" points="${SSE.map((v,i)=>X(i)+","+Y(v)).join(" ")}"/>`;
+ SSE.forEach((v,i)=>{o+=`<circle cx="${X(i)}" cy="${Y(v)}" r="5" fill="var(--ac)"/><text class="ax" x="${X(i)}" y="${Y(v)-10}" text-anchor="middle">${f(v,3)}</text><text class="ax" x="${X(i)}" y="${H-16}" text-anchor="middle">${i+1}</text>`});
+ $("ch").innerHTML=o+`<text class="ax" x="${W/2}" y="${H-2}" text-anchor="middle">Iterasi</text></svg>`;
+}
+function results(){
+ $("rs").innerHTML=FC.map((c,j)=>{const ix=D.map((_,i)=>i).filter(i=>FL[i]==j),a=g=>ix.length?(ix.reduce((s,i)=>s+D[i][g],0)/ix.length):0;
+  return`<div>${tg(j)} <b>${ix.length} mahasiswa</b><br><span style="color:var(--mu)">Rata-rata IPK ${a(1).toFixed(2)} · Hadir ${a(2).toFixed(1)}%</span><br><small>${ix.map(i=>D[i][0]).join(", ")}</small></div>`}).join("")}
+function show(i){cur=Math.max(0,Math.min(S.length-1,i));const s=S[cur];$("sl").value=cur;$("sn").textContent=`${cur+1} / ${S.length}`;$("st").innerHTML=`<h3 style="margin:0 0 6px;font-size:16px">${s.t}</h3><div>${s.d}</div>`;scatter(s)}
+function go(){prep();const k=+$("k").value;if(n<k){$("msg").textContent=`Data minimal ${k} mahasiswa untuk K=${k} (sekarang ${n}).`;return}$("msg").textContent="";run(+$("k").value,+$("seed").value||1);$("sl").max=S.length-1;show(0);sseChart();results()}
+$("go").onclick=go;$("k").onchange=go;$("pv").onclick=()=>show(cur-1);$("nx").onclick=()=>show(cur+1);$("sl").oninput=e=>show(+e.target.value);
+$("th").onclick=()=>{const r=document.documentElement,d=r.dataset.theme?r.dataset.theme=="dark":matchMedia("(prefers-color-scheme:dark)").matches;r.dataset.theme=d?"light":"dark"};
+function esc(t){return t.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function add(){const nm=$("in").value.trim(),a=parseFloat($("ii").value),h=parseFloat($("ih").value);
+ if(!nm)return $("msg").textContent="Nama wajib diisi.";
+ if(!(a>=0&&a<=4))return $("msg").textContent="IPK harus 0–4.";
+ if(!(h>=0&&h<=100))return $("msg").textContent="Kehadiran harus 0–100%.";
+ D.push([esc(nm),a,h]);["in","ii","ih"].forEach(i=>$(i).value="");$("in").focus();$("msg").textContent="";drawTable();go()}
+$("ad").onclick=add;["in","ii","ih"].forEach(i=>$(i).onkeydown=e=>{if(e.key=="Enter")add()});
+$("dt").onclick=e=>{const i=e.target.dataset.i;if(i!=null){D.splice(+i,1);drawTable();go()}};
+$("rd").onclick=()=>{D=DEF.map(d=>d.slice());drawTable();go()};
+$("cl").onclick=()=>{D=[];drawTable();go()};
+drawTable();go();
+</script></body></html>
